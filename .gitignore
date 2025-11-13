@@ -1,0 +1,6 @@
+.venv/
+back4app.env
+__pycache__/
+*.pyc
+.env
+.vscode/

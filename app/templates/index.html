@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>ATS Analyzer</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>ATS Analyzer</h1>
+      <p><a href="/admin">Admin</a></p>
+      <div style="margin-bottom:12px; padding:8px; border:1px solid #eee; background:#fafafa;">
+        <strong>Back4App App ID:</strong> {{ app_id if app_id else 'Not configured' }}
+        <br /><strong>Validation:</strong> {{ 'OK' if validate.ok else 'FAILED' }}
+        <pre style="margin-top:8px">{{ validate | tojson }}</pre>
+      </div>
+      <form method="post" action="/analyze">
+        <label>Job Description</label>
+        <textarea name="job_description" rows="12">{{ jd if jd else '' }}</textarea>
+        <label>Resume</label>
+        <textarea name="resume" rows="16">{{ resume if resume else '' }}</textarea>
+        <button type="submit">Analyze</button>
+      </form>
+
+      {% if result %}
+      <section class="results">
+        <h2>Results</h2>
+        <p><strong>ATS Score:</strong> {{ result.ats_score }} / 100</p>
+        <p><strong>Top Keywords (from JD):</strong> {{ result.top_keywords | join(', ') }}</p>
+        <p><strong>Missing Keywords:</strong> {{ result.missing_keywords | join(', ') }}</p>
+        <p><strong>Weak Keywords:</strong> {{ result.weak_keywords | join(', ') }}</p>
+        <h3>Recommendations</h3>
+        <ul>
+        {% for r in result.recommendations %}
+          <li>{{ r }}</li>
+        {% endfor %}
+        </ul>
+        <h3>Rewritten Summary</h3>
+        <pre>{{ result.rewritten_summary }}</pre>
+        <h3>Optimized Resume (preview)</h3>
+        <pre>{{ result.optimized_resume }}</pre>
+        <h3>Responsibility Coverage</h3>
+        <ul>
+        {% for r in result.responsibility %}
+          <li>
+            <strong>Covered:</strong> {{ 'Yes' if r.covered else 'No' }} — {{ r.sentence }}
+            <br /><strong>Keywords:</strong> {{ r.required_keywords | join(', ') }}
+          </li>
+        {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+    </div>
+  </body>
+</html>

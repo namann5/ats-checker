@@ -1,0 +1,6 @@
+body { font-family: Arial, sans-serif; margin: 24px; }
+.container { max-width: 900px; margin: 0 auto; }
+textarea { width: 100%; font-family: monospace; }
+button { padding: 8px 12px; margin-top: 8px; }
+.results { background: #f9f9f9; padding: 12px; margin-top: 16px; border-radius: 6px; }
+pre { background: #fff; padding: 8px; border: 1px solid #eee; overflow: auto; }

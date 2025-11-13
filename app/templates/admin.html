@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>ATS Analyzer — Admin</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Admin</h1>
+      <section>
+        <h2>Back4App</h2>
+        <p><strong>Application ID:</strong> {{ app_id }}</p>
+        <p><strong>Validation:</strong> {{ 'OK' if validate.ok else 'FAILED' }}</p>
+        <pre>{{ validate | tojson }}</pre>
+      </section>
+
+      <section>
+        <h2>Create Class</h2>
+        <form method="post" action="/admin/create-class">
+          <label>JSON Schema for Class (example: {"className":"MyClass","fields":{}})</label>
+          <textarea name="schema" rows="8">{"className":"MyClass","fields":{}}</textarea>
+          <button type="submit">Create Class</button>
+        </form>
+      </section>
+
+      <section>
+        <h2>Upload File</h2>
+        <form method="post" action="/admin/upload-file">
+          <label>Filename</label>
+          <input name="filename" />
+          <label>Content (paste file content)</label>
+          <textarea name="content" rows="6"></textarea>
+          <button type="submit">Upload File</button>
+        </form>
+      </section>
+
+      <p><a href="/">Back to Analyzer</a></p>
+
+    </div>
+  </body>
+</html>
