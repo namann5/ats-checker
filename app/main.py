@@ -11,12 +11,23 @@ import base64
 import json
 import re
 import json
+import os as _os
+try:
+    import openai
+except Exception:
+    openai = None
 
 app = FastAPI()
 
 # Load environment (Back4App keys etc.)
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', 'back4app.env'))
 APPLICATION_ID = os.getenv('APPLICATION_ID', '')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+if OPENAI_API_KEY and openai is not None:
+    try:
+        openai.api_key = OPENAI_API_KEY
+    except Exception:
+        pass
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
@@ -423,3 +434,54 @@ async def api_upload_file(payload: dict = Body(...)):
         return {"ok": False, "error": f"Invalid base64: {e}"}
     ok, status, resp = back4app_request('POST', f'/files/{filename}', raw_bytes=raw, filename=filename)
     return {"ok": ok, "status_code": status, "response": resp}
+
+
+def rewrite_bullets_with_llm(role_text: str, jd: str, max_bullets: int = 4) -> list:
+    """Attempt to rewrite bullets using OpenAI. Falls back to heuristics if no key or failure."""
+    # If openai is not installed or no key, return heuristic bullets
+    if openai is None or not OPENAI_API_KEY:
+        return generate_bullets_for_role(role_text, extract_top_keywords(jd, top_n=20))
+
+    prompt = (
+        "You are a resume-writing assistant. Given a role description and the job description, "
+        "rewrite the role as 3-4 concise, achievement-focused resume bullets. Include measurable results if present. "
+        "Output each bullet on a separate line without numbering.\n\n"
+        f"Job description:\n{jd}\n\nRole text:\n{role_text}\n\nBullets:\n"
+    )
+    try:
+        # Use ChatCompletion if available
+        if hasattr(openai, 'ChatCompletion'):
+            completion = openai.ChatCompletion.create(
+                model='gpt-3.5-turbo',
+                messages=[{'role': 'system', 'content': 'You are a helpful resume writer.'},
+                          {'role': 'user', 'content': prompt}],
+                max_tokens=400,
+                temperature=0.3,
+            )
+            text = completion.choices[0].message.content
+        else:
+            completion = openai.Completion.create(
+                model='text-davinci-003',
+                prompt=prompt,
+                max_tokens=400,
+                temperature=0.3,
+            )
+            text = completion.choices[0].text
+        # split into lines and return top max_bullets
+        bullets = [line.strip('-* \t') for line in text.splitlines() if line.strip()]
+        return bullets[:max_bullets] if bullets else generate_bullets_for_role(role_text, extract_top_keywords(jd, top_n=20))
+    except Exception:
+        return generate_bullets_for_role(role_text, extract_top_keywords(jd, top_n=20))
+
+
+@app.post('/api/rewrite-bullets')
+async def api_rewrite_bullets(payload: dict = Body(...)):
+    """Rewrite bullets for a role using LLM if available; payload: { role_text, jd }
+    Returns JSON: { bullets: [...] }
+    """
+    role = payload.get('role_text', '')
+    jd = payload.get('jd', '')
+    if not role:
+        return {"error": "Provide 'role_text' in payload."}
+    bullets = rewrite_bullets_with_llm(role, jd)
+    return {"bullets": bullets}
