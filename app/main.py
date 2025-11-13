@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Form, Body
+from fastapi import FastAPI, Request, Form, Body, UploadFile, File
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -263,11 +263,55 @@ async def index(request: Request):
 
 
 @app.post("/analyze")
-async def analyze(request: Request, job_description: str = Form(...), resume: str = Form(...)):
-    result = compute_match(job_description, resume)
+async def analyze(
+    request: Request,
+    job_description: str = Form(...),
+    resume: str = Form(None),
+    resume_file: UploadFile = File(None),
+):
+    """Accept either pasted resume text or an uploaded resume file. File parsing supports plain text.
+    If PyPDF2 or python-docx are installed the endpoint will attempt to extract text from PDF/DOCX uploads.
+    """
+    resume_text = ''
+    # prefer uploaded file if provided
+    if resume_file is not None:
+        try:
+            content = await resume_file.read()
+            # try simple text decode first
+            try:
+                resume_text = content.decode('utf-8')
+            except Exception:
+                # attempt PDF extraction if PyPDF2 available
+                try:
+                    from io import BytesIO
+                    import PyPDF2
+
+                    reader = PyPDF2.PdfReader(BytesIO(content))
+                    pages = [p.extract_text() or '' for p in reader.pages]
+                    resume_text = '\n'.join(pages)
+                except Exception:
+                    # attempt docx extraction if python-docx available
+                    try:
+                        from io import BytesIO
+                        import docx
+
+                        doc = docx.Document(BytesIO(content))
+                        resume_text = '\n'.join([p.text for p in doc.paragraphs])
+                    except Exception:
+                        resume_text = ''
+        except Exception:
+            resume_text = ''
+    else:
+        resume_text = resume or ''
+
+    if not resume_text:
+        # return with an error message embedded in template
+        return templates.TemplateResponse("index.html", {"request": request, "result": None, "jd": job_description, "resume": resume or '', "error": "Please provide resume text or upload a plain text/PDF/DOCX file."})
+
+    result = compute_match(job_description, resume_text)
     recs = recommend_actions(result['missing_keywords'], result['weak_keywords'])
-    summary = generate_summary(result['top_keywords'], find_summary(resume))
-    optimized_resume = generate_improved_resume(result['top_keywords'], resume)
+    summary = generate_summary(result['top_keywords'], find_summary(resume_text))
+    optimized_resume = generate_improved_resume(result['top_keywords'], resume_text)
 
     out = {
         "ats_score": result['score'],
@@ -279,7 +323,7 @@ async def analyze(request: Request, job_description: str = Form(...), resume: st
         "rewritten_summary": summary,
         "optimized_resume": optimized_resume,
     }
-    return templates.TemplateResponse("index.html", {"request": request, "result": out, "jd": job_description, "resume": resume})
+    return templates.TemplateResponse("index.html", {"request": request, "result": out, "jd": job_description, "resume": resume_text})
 
 
 @app.get('/admin', response_class=HTMLResponse)

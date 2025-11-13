@@ -14,11 +14,13 @@
         <br /><strong>Validation:</strong> {{ 'OK' if validate.ok else 'FAILED' }}
         <pre style="margin-top:8px">{{ validate | tojson }}</pre>
       </div>
-      <form method="post" action="/analyze">
+      <form method="post" action="/analyze" enctype="multipart/form-data">
         <label>Job Description</label>
         <textarea name="job_description" rows="12">{{ jd if jd else '' }}</textarea>
-        <label>Resume</label>
-        <textarea name="resume" rows="16">{{ resume if resume else '' }}</textarea>
+        <label>Resume (paste text OR upload a file)</label>
+        <input type="file" name="resume_file" accept=".txt,.pdf,.docx" />
+        <small>Or paste resume text below (optional):</small>
+        <textarea name="resume" rows="8">{{ resume if resume else '' }}</textarea>
         <button type="submit">Analyze</button>
       </form>
 
